@@ -129,157 +129,190 @@ void print_bits(unsigned char *arr, int size)
 }
 
 // Left shift function
-void left_shift(unsigned char *array, int shift_count)
+void left_shift(unsigned char array[4], int shift_count)
 {
     for (int i = 0; i < shift_count; i++)
     {
-        unsigned char carry = (array[0] >> 7) & 0x01;
+        unsigned char carry = (array[0] >> 7) & 0x01; // Store the leftmost bit
+
         for (int j = 0; j < 3; j++)
-        {
-            array[j] = (array[j] << 1) | (array[j + 1] >> 7);
+        { // Iterate up to the second to last element
+            array[j] = (array[j] << 1) | ((array[j + 1] >> 7) & 0x01);
         }
+
+        // Handle the last element, wrapping the carry
         array[3] = (array[3] << 1) | carry;
     }
 }
 
-// void left_shift2(unsigned char *half_key, int shifts)
-// {
-//     for (int i = 0; i < shifts; i++)
-//     {
-//         unsigned char left_most_bit = (half_key[0] >> 7) & 1; // Get leftmost bit
-//         // Shift left by 1 bit
-//         for (int j = 0; j < HALF_KEY_SIZE2 - 1; j++)
-//         {
-//             half_key[j] = (half_key[j] << 1) | (half_key[j + 1] >> 7);
-//         }
-//         half_key[HALF_KEY_SIZE2 - 1] = (half_key[HALF_KEY_SIZE2 - 1] << 1) | left_most_bit;
-//     }
-// }
-
 // Perform the PC1 permutation on the 64-bit key
-void permute_PC1(unsigned char *input, unsigned char *output)
+void permute_PC1(unsigned char key64[8], unsigned char key56[7])
 {
-    // unsigned char temp[6] = {0}; // To store 48-bit subkey
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 56; i++)
     {
-        int byte_pos = PC1[i] / 8; // Byte index in the input
-        int bit_pos = PC2[i] % 8;  // Bit position within the byte
+        int pc1_index = PC1[i] - 1;     // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from input and place it in output
-        int bit = (input[byte_pos] >> (7 - bit_pos)) & 1; // Extract the specific bit
-        output[i / 8] |= bit << (7 - i % 8);              // Place it in the corresponding position in output
+        // Extract the bit from the original key (key64)
+        // Corrected byte_index access: should be within the bounds of key64 (0 to 7)
+        unsigned char bit = (key64[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key56_byte_index = i / 8; // Determine byte position in key56
+        int key56_bit_index = i % 8;  // Determine bit position in key56
+
+        key56[key56_byte_index] |= (bit << (7 - key56_bit_index)); // Set the bit in key56
     }
-    // Copy the result into subkey
-    // memcpy(subkey, temp, 6); // 48-bit subkey
+    // Removed the premature return statement. The loop needs to complete.
 }
 
 // Function to perform the expansion permutation (E)
-void permute_E(unsigned char *input, unsigned char *output)
+void permute_E(const unsigned char key64[4], unsigned char key56[6])
 {
-    // Perform the expansion based on the E-table
+    // Initialize the 56-bit key (unsigned char array of size 7)
+    // unsigned long long result = 0;
+
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 48; i++)
     {
-        int bit_pos = E[i] - 1; // Convert to 0-based index
-        int byte_index = bit_pos / 8;
-        int bit_index = bit_pos % 8;
+        int pc1_index = E[i] - 1;       // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from the input and set it in the corresponding place in the output
-        int bit_value = (input[byte_index] >> (7 - bit_index)) & 1;
-        output[i / 8] |= bit_value << (7 - (i % 8));
+        // Extract the bit from the original key (key64)
+        unsigned char bit = (key64[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key56_byte_index = i / 8; // Determine byte position in key56
+        int key56_bit_index = i % 8;  // Determine bit position in key56
+
+        key56[key56_byte_index] |= (bit << (7 - key56_bit_index)); // Set the bit in key56
     }
 }
 
-// Perform the PC1 permutation on the 64-bit key
-void permute_P(unsigned char *key, unsigned char *output)
+// Perform the P permutation on the key
+void permute_P(const unsigned char key64[4], unsigned char key56[4])
 {
+    // Initialize the 56-bit key (unsigned char array of size 7)
+    // unsigned long long result = 0;
 
-    // Initialize the output array to store the permuted 32-bit result
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 32; i++)
     {
-        int byte_pos = P[i] / 8; // The byte index in the input
-        int bit_pos = P[i] % 8;  // The bit index within the byte
+        int pc1_index = P[i] - 1;       // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from the input `key` and place it in the `output`
-        int bit = (key[byte_pos] >> (7 - bit_pos)) & 1; // Extract the specific bit
-        output[i / 8] |= bit << (7 - i % 8);            // Place it in the corresponding position in `output`
+        // Extract the bit from the original key (key64)
+        unsigned char bit = (key64[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key56_byte_index = i / 8; // Determine byte position in key56
+        int key56_bit_index = i % 8;  // Determine bit position in key56
+
+        key56[key56_byte_index] |= (bit << (7 - key56_bit_index)); // Set the bit in key56
     }
 }
 
-// Perform the PC1 permutation on the 64-bit key
-void permute_IP(unsigned char *input, unsigned char *output)
+// Perform the IP permutation on the 64-bit key
+void permute_IP(unsigned char key64[8], unsigned char key56[8])
 {
-    // Assuming IP is a predefined permutation table of size 64 that gives the new bit positions
-    // Perform the PC1 permutation (56-bit output)
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 64; i++)
     {
-        int byte_pos = IP[i] / 8; // Byte index in the input
-        int bit_pos = IP[i] % 8;  // Bit position within the byte
+        int pc1_index = IP[i] - 1;      // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from input and place it in output
-        int bit = (input[byte_pos] >> (7 - bit_pos)) & 1; // Extract the specific bit
-        output[i / 8] |= bit << (7 - i % 8);              // Place it in the corresponding position in output
+        // Extract the bit from the original key (key64)
+        // Corrected byte_index access: should be within the bounds of key64 (0 to 7)
+        unsigned char bit = (key64[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key56_byte_index = i / 8; // Determine byte position in key56
+        int key56_bit_index = i % 8;  // Determine bit position in key56
+
+        key56[key56_byte_index] |= (bit << (7 - key56_bit_index)); // Set the bit in key56
     }
+    // Removed the premature return statement. The loop needs to complete.
 }
 
 // Perform the PC1 permutation on the 64-bit key
-void permute_FP(unsigned char *input, unsigned char *output)
+void permute_FP(unsigned char key64[8], unsigned char key56[8])
 {
-    // Perform the PC1 permutation (56-bit output)
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 64; i++)
     {
-        int byte_pos = FP[i] / 8; // Byte index in the input
-        int bit_pos = FP[i] % 8;  // Bit position within the byte
+        int pc1_index = FP[i] - 1;      // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from input and place it in output
-        int bit = (input[byte_pos] >> (7 - bit_pos)) & 1; // Extract the specific bit
-        output[i / 8] |= bit << (7 - i % 8);              // Place it in the corresponding position in output
+        // Extract the bit from the original key (key64)
+        // Corrected byte_index access: should be within the bounds of key64 (0 to 7)
+        unsigned char bit = (key64[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key56_byte_index = i / 8; // Determine byte position in key56
+        int key56_bit_index = i % 8;  // Determine bit position in key56
+
+        key56[key56_byte_index] |= (bit << (7 - key56_bit_index)); // Set the bit in key56
     }
+    // Removed the premature return statement. The loop needs to complete.
 }
 
 // Perform the PC2 permutation to generate the subkey
-void permute_PC2(unsigned char *input, unsigned char *output)
+void permute_PC2(unsigned char key56[7], unsigned char key48[6])
 {
-    // unsigned char temp[6] = {0}; // To store 48-bit subkey
+    // Loop through each of the 56 positions in PC-1
     for (int i = 0; i < 48; i++)
     {
-        int byte_pos = FP[i] / 8; // Byte index in the input
-        int bit_pos = FP[i] % 8;  // Bit position within the byte
+        int pc1_index = PC2[i] - 1;     // Convert to 0-based index
+        int byte_index = pc1_index / 8; // Determine which byte the bit is in
+        int bit_index = pc1_index % 8;  // Determine which bit within the byte
 
-        // Extract the bit from input and place it in output
-        int bit = (input[byte_pos] >> (7 - bit_pos)) & 1; // Extract the specific bit
-        output[i / 8] |= bit << (7 - i % 8);              // Place it in the corresponding position in output
+        // Extract the bit from the original key (key64)
+        // Corrected byte_index access: should be within the bounds of key64 (0 to 7)
+        unsigned char bit = (key56[byte_index] >> (7 - bit_index)) & 1;
+
+        // Set the corresponding bit in key56
+        int key48_byte_index = i / 8; // Determine byte position in key56
+        int key48_bit_index = i % 8;  // Determine bit position in key56
+
+        key48[key48_byte_index] |= (bit << (7 - key48_bit_index)); // Set the bit in key56
     }
-    // Copy the result into subkey
-    // memcpy(subkey, temp, 6); // 48-bit subkey
+    // Removed the premature return statement. The loop needs to complete.
+}
+
+void split_key(unsigned char key56[7], unsigned char left[4], unsigned char right[4])
+{
+    // Copy the first 28 bits (3.5 bytes) to the left part
+    memcpy(left, key56, 3);
+    left[3] = (key56[3] & 0xF0) >> 4;
+    left[3] <<= 4;
+
+    // Copy the last 28 bits (3.5 bytes) to the right part
+    right[0] = (key56[3] & 0x0F) << 4 | (key56[4] & 0xF0) >> 4;
+    right[1] = (key56[4] & 0x0F) << 4 | (key56[5] & 0xF0) >> 4;
+    right[2] = (key56[5] & 0x0F) << 4 | (key56[6] & 0xF0) >> 4;
+    right[3] = (key56[6] & 0x0F) << 4; // Rest is padded with 0 implicitly
 }
 
 // Function to generate the 16 round keys from the original key
-void generate_keys(unsigned char *key, unsigned char round_keys[16][6])
+void generate_keys(unsigned char key[8], unsigned char round_keys[16][6])
 {
     unsigned char key56[7] = {0}; // 56-bit key after PC1
 
     // Step 1: Permute the key using PC1 (56 bits)
     permute_PC1(key, key56); // Now the key is in a 56-bit form
 
-    printf("\nTable permuted..\n\n");
-    printf("Key56 in binary: \n");
-    print_bits(key56, 7); // Print the 56-bit result
-
     // Step 2: Split the key into two 28-bit halves
     unsigned char left[4] = {0};  // 28 bits (stored in 4 bytes)
     unsigned char right[4] = {0}; // 28 bits (stored in 4 bytes)
 
-    // C0 = first 28 bits from the 56-bit key
-    left[0] = (key56[0] >> 1) & 0xFF; // Taking bits 1-8 from the 56-bit key
-    left[1] = (key56[1] >> 1) & 0xFF; // Taking bits 9-16 from the 56-bit key
-    left[2] = (key56[2] >> 1) & 0xFF; // Taking bits 17-24 from the 56-bit key
-    left[3] = (key56[3] >> 1) & 0xFF; // Taking bits 25-28 from the 56-bit key
-
-    // D0 = last 28 bits from the 56-bit key
-    right[0] = ((key56[3] & 0x01) << 7) | (key56[4] >> 1); // Bits 29-32 + 33-40
-    right[1] = (key56[5] >> 1) & 0xFF;                     // Bits 41-48
-    right[2] = (key56[6] >> 1) & 0xFF;                     // Bits 49-56
-    right[3] = 0;                                          // Remaining bits from 49-56
+    // Note: The least significant 4 bits of key56[6] are not used in the standard
+    split_key(key56, left, right);
 
     // Step 3: Perform 16 rounds of shifting and applying PC-2
     for (int round = 0; round < 16; round++)
@@ -291,18 +324,21 @@ void generate_keys(unsigned char *key, unsigned char round_keys[16][6])
         // Step 3.2: Combine C and D to get the 56-bit key
         unsigned char key56_combined[7] = {0};
 
-        // Combine the 28-bit left and right parts
-        key56_combined[0] = (left[0] << 1) | (right[0] >> 7); // Combine bits from left and right
-        key56_combined[1] = left[1] << 1 | (right[1] >> 7);
-        key56_combined[2] = left[2] << 1 | (right[2] >> 7);
-        key56_combined[3] = left[3] << 1 | (right[3] >> 7);
+        memcpy(key56_combined, left, 3);
+        // memcpy(key56_combined + 4, right + 1, 3);
 
-        // Apply PC2 to generate the 48-bit subkey
+        key56_combined[3] = (left[3] & 0xF0) | (right[0] & 0xF0) >> 4;
+        key56_combined[4] = (right[0] & 0x0F) << 4 | (right[1] & 0xF0) >> 4;
+        key56_combined[5] = (right[1] & 0x0F) << 4 | (right[2] & 0xF0) >> 4;
+        key56_combined[6] = (right[2] & 0x0F) << 4 | (right[3] & 0xF0) >> 4;
+        // = (key56[3] & 0x0F) << 4 | (key56[4] & 0xF0) >> 4;
+
+        // // Apply PC2 to generate the 48-bit subkey
         permute_PC2(key56_combined, round_keys[round]);
     }
 }
 
-void f_function(unsigned char *right_half, unsigned char *round_key, unsigned char *output)
+void f_function(unsigned char right_half[4], unsigned char round_key[6], unsigned char output[4])
 {
     // Step 1: Expand the right half using the expansion table
     unsigned char expanded[6] = {0};
@@ -335,10 +371,6 @@ void f_function(unsigned char *right_half, unsigned char *round_key, unsigned ch
         int sbox_value = S[i][row * 16 + col]; // S-box value is at [row * 16 + col]
 
         // Step 3.4: Store the 4-bit output of the S-box
-        // for (int j = 0; j < 4; j++)
-        // {
-        //     sbox_output[i][j] = (sbox_value >> (3 - j)) & 1; // Extract each bit of the 4-bit output
-        // }
         sbox_output[i] = (unsigned char)sbox_value; // Store the 4-bit value as an 8-bit byte
     }
 
@@ -475,21 +507,19 @@ int main()
 {
     // Example data (64 bits) and key (56 bits)
     // 64-bit input block (message data) as an array of integers (8 bytes)
-    unsigned char input[] = {116, 104, 105, 115, 107, 101, 121, 10};
+    unsigned char input[8] = {116, 104, 105, 115, 107, 101, 121, 10};
 
     // // 56-bit key as an array of integers (8 bytes)
-    unsigned char key[] = {131, 55, 96, 111, 107, 101, 11, 89};
+    unsigned char key[8] = {121, 111, 119, 104, 97, 116, 117, 112};
     // Example 64-bit key for DES
     // This is your original example key
 
-    // printf("\n");
-    // printf("\n");
-    // printf("Total size of array in bytes: %zu\n", sizeof(input));
-    // printf("Size of one element (int): %zu\n", sizeof(input));
-    // printf("Number of elements: %zu\n", sizeof(input) / sizeof(input));
-
     unsigned char output[8];
     unsigned char output2[8];
+
+    printf("\n");
+    printf("Input in binary: \n");
+    print_bits(input, 8); // Print the 64-bit result (8 bytes)
 
     printf("\n");
     printf("Input in binary: \n");
@@ -501,6 +531,7 @@ int main()
 
     // Use generate_keys for encryption
     generate_keys(key, round_keys); // Generate the round keys for encryption
+    printf("\n");
 
     for (int i = 0; i < 16; i++)
     {
@@ -510,7 +541,7 @@ int main()
         print_bits(round_keys[i], 6); // Print the 64-bit result (8 bytes)
     }
 
-    // Encrypt the data
+    // // Encrypt the data
 
     desE(input, output);
 
@@ -518,29 +549,29 @@ int main()
     printf("Output in binary: \n");
     print_bits(output, 8); // Print the 64-bit result (8 bytes)
 
-    printf("\n");
-    printf("\n");
+    // // printf("\n");
+    // // printf("\n");
 
-    printf("This is the output: ");
-    for (int i = 0; i < 8; i++)
-    {
-        printf("%d", output[i]);
-    }
+    // printf("This is the output: \n");
+    // for (int i = 0; i < 8; i++)
+    // {
+    //     printf("%d ", output[i]);
+    // }
 
-    desD(output, output2);
+    // desD(output, output2);
 
-    printf("\n");
-    printf("Output in binary: \n");
-    print_bits(output2, 8); // Print the 64-bit result (8 bytes)
+    // printf("\n");
+    // printf("Output2 in binary: \n");
+    // print_bits(output2, 8); // Print the 64-bit result (8 bytes)
 
-    printf("\n");
-    printf("\n");
+    // // printf("\n");
+    // // printf("\n");
 
-    printf("This is the output2: ");
-    for (int i = 0; i < 8; i++)
-    {
-        printf("%d", output2[i]);
-    }
+    // printf("This is the output2: \n");
+    // for (int i = 0; i < 8; i++)
+    // {
+    //     printf("%d ", output2[i]);
+    // }
 
     return 0;
 }
